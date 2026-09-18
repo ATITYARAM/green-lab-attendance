@@ -284,3 +284,13 @@ button:disabled { opacity: .6; cursor: not-allowed; }
         display: block;
     }
 }
+
+
+/* QR page: enforce desktop-only display from viewport width */
+html.mobile-qr-hidden .qr-print-card {
+    display: none !important;
+}
+
+html.mobile-qr-hidden .qr-mobile-message {
+    display: block !important;
+}
