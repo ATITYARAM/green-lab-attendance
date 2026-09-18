@@ -150,9 +150,9 @@ async function loadHistory() {
 
             return (
                 '<div class="history-item">' +
-                "<div><strong>Entry:</strong> " + session.entry_time + "</div>" +
+                "<div><strong>Entry:</strong> " + formatAttendanceTime(session.entry_time) + "</div>" +
                 "<div><strong>Exit:</strong> " +
-                (session.exit_time || "Inside Lab") +
+                (session.exit_time ? formatAttendanceTime(session.exit_time) : "Inside Lab") +
                 "</div>" +
                 "<div><strong>Duration:</strong> " + duration + "</div>" +
                 "</div>"
@@ -162,6 +162,29 @@ async function loadHistory() {
         console.error(error);
         historyElement.textContent = "Unable to load attendance history.";
     }
+}
+
+const DISPLAY_TIME_ZONE = "Asia/Kolkata";
+
+function formatAttendanceTime(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+        timeZone: DISPLAY_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+    }).format(date);
 }
 
 function getScanAction() {
