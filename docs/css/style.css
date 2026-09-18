@@ -164,6 +164,12 @@ button:disabled { opacity: .6; cursor: not-allowed; }
     height: auto;
 }
 
+@media (max-width: 768px) {
+    .qr-panel {
+        display: none;
+    }
+}
+
 @media (max-width: 680px) {
     .container {
         width: min(100% - 20px, 900px);
