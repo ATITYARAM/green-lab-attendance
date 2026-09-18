@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Green Lab | Attendance QR</title>
     <style>
+        .qr-mobile-message {
+            display: none;
+        }
+
+        @media screen and (max-width: 768px) {
+            .card {
+                display: none !important;
+            }
+
+            .qr-mobile-message {
+                display: block;
+                width: min(90vw, 620px);
+                padding: 40px;
+                background: white;
+                text-align: center;
+                border-radius: 18px;
+                box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+            }
+
+            .qr-mobile-message h1 {
+                margin-bottom: 8px;
+                color: #1f6f43;
+            }
+
+            .qr-mobile-message p {
+                color: #4b5563;
+                line-height: 1.6;
+            }
+        }
+
         body {
             font-family: Arial, sans-serif;
             min-height: 100vh;
@@ -58,15 +88,6 @@
             cursor: pointer;
         }
 
-        .qr-mobile-message { display: none; }
-
-        @media (max-width: 768px) {
-            .card { display: none; }
-            .qr-mobile-message { display: block; width: min(90vw, 620px); padding: 40px; background: white; text-align: center; border-radius: 18px; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08); }
-            .qr-mobile-message h1 { margin-bottom: 8px; color: #1f6f43; }
-            .qr-mobile-message p { color: #4b5563; line-height: 1.6; }
-        }
-
         @media print {
             body {
                 background: white;
@@ -90,6 +111,11 @@
 </head>
 
 <body>
+    <main class="qr-mobile-message">
+        <h1>QR Code Not Available on Mobile</h1>
+        <p>The Green Lab attendance QR code is available only on desktop browsers for printing and display.</p>
+    </main>
+
     <main class="card">
         <h1>Green Lab</h1>
         <p>Scan this QR code to record Green Lab attendance.</p>
