@@ -39,11 +39,13 @@ async function workerRequest(path, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             data?.error ||
             data?.message ||
             "Worker request failed with HTTP " + response.status
         );
+        error.status = response.status;
+        throw error;
     }
 
     return data;
