@@ -20,11 +20,6 @@ const base = import.meta.env.BASE_URL;
     <meta name="description" content={description} />
     <title>{title}</title>
     <link rel="stylesheet" href={base + "css/style.css"} />
-    <script is:inline>
-      if (window.innerWidth <= 768) {
-        document.documentElement.classList.add("mobile-qr-hidden");
-      }
-    </script>
   </head>
   <body>
     <slot />

@@ -1,89 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Green Lab | Attendance QR</title>
-    <script>
-        if (window.innerWidth <= 768) {
-            document.documentElement.classList.add("mobile-qr-hidden");
-        }
-    </script>
-    <style>
-        .qr-mobile-message {
-            display: block;
-            width: min(90vw, 620px);
-            padding: 40px;
-            background: white;
-            text-align: center;
-            border-radius: 18px;
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
-        }
-
-        .qr-mobile-message h1 { margin-bottom: 8px; color: #1f6f43; }
-        .qr-mobile-message p { color: #4b5563; line-height: 1.6; }
-
-        .card {
-            display: none;
-        }
-
-        @media screen and (min-width: 769px) {
-            .qr-mobile-message {
-                display: none;
-            }
-
-            .card {
-                display: block;
-            }
-        }
-
-        @media print {
-            body {
-                background: white;
-            }
-
-            .card {
-                width: 100%;
-                box-shadow: none;
-                padding: 20px;
-            }
-
-            .print-button {
-                display: none;
-            }
-
-            .qr-mobile-message {
-                display: none;
-            }
-        }
-            html.mobile-qr-hidden .card { display: none !important; }
-        html.mobile-qr-hidden .qr-mobile-message { display: block !important; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Green Lab student attendance and lab time tracking system.">
+  <title>Green Lab | Attendance QR</title>
+  <link rel="stylesheet" href="./css/style.css">
 </head>
-
 <body>
-    <main class="qr-mobile-message">
-        <h1>QR Code Not Available on Mobile</h1>
-        <p>The Green Lab attendance QR code is available only on desktop browsers for printing and display.</p>
-    </main>
+  <main class="qr-print-page">
+    <section class="qr-mobile-message" aria-live="polite">
+      <h1>QR Code Not Available on Mobile</h1>
+      <p>The Green Lab attendance QR code is available only on desktop browsers for printing and display.</p>
+    </section>
 
-    <main class="card">
-        <h1>Green Lab</h1>
-        <p>Scan this QR code to record Green Lab attendance.</p>
+    <section class="qr-print-card">
+      <h1>Green Lab</h1>
+      <p>Scan this QR code to record Green Lab attendance.</p>
 
-        <img
-            class="qr"
-            src="https://quickchart.io/qr?text=https%3A%2F%2Frakhuljm.github.io%2Fgreen-lab-attendance%2Fattendance.html%3Faction%3Dscan&format=svg&size=500&margin=4&ecLevel=Q"
-            alt="Green Lab Attendance QR Code"
-        >
+      <img
+        class="qr-print-image"
+        src="https://quickchart.io/qr?text=https%3A%2F%2Frakhuljm.github.io%2Fgreen-lab-attendance%2Fattendance.html%3Faction%3Dscan&format=svg&size=500&margin=4&ecLevel=Q"
+        alt="Green Lab Attendance QR Code"
+      >
 
-        <p class="url">
-            https://rakhuljm.github.io/green-lab-attendance/attendance.html?action=scan
-        </p>
+      <p class="url">https://rakhuljm.github.io/green-lab-attendance/attendance.html?action=scan</p>
 
-        <button class="print-button" onclick="window.print()">
-            Print QR Code
-        </button>
-    </main>
+      <button class="print-button" type="button" onclick="window.print()">Print QR Code</button>
+    </section>
+  </main>
+
+  <style>
+    .qr-mobile-message {
+      display: none;
+      width: min(100% - 32px, 720px);
+      margin: 0 auto;
+      padding: 48px 24px;
+      text-align: center;
+    }
+
+    .qr-mobile-message h1 {
+      margin: 0 0 10px;
+      color: #1f6f43;
+    }
+
+    .qr-mobile-message p {
+      margin: 0;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+      .qr-print-card { display: none; }
+      .qr-mobile-message { display: block; }
+    }
+
+    @media print {
+      .qr-mobile-message { display: none; }
+      .qr-print-card { display: block; }
+    }
+  </style>
 </body>
 </html>

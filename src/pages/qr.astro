@@ -14,6 +14,7 @@ const attendanceUrl = new URL(
       <h1>QR Code Not Available on Mobile</h1>
       <p>The Green Lab attendance QR code is available only on desktop browsers for printing and display.</p>
     </section>
+
     <section class="qr-print-card">
       <h1>Green Lab</h1>
       <p>Scan this QR code to record Green Lab attendance.</p>
@@ -36,3 +37,44 @@ const attendanceUrl = new URL(
     </section>
   </main>
 </Layout>
+
+<style>
+  .qr-mobile-message {
+    display: none;
+    width: min(100% - 32px, 720px);
+    margin: 0 auto;
+    padding: 48px 24px;
+    text-align: center;
+  }
+
+  .qr-mobile-message h1 {
+    margin: 0 0 10px;
+    color: #1f6f43;
+  }
+
+  .qr-mobile-message p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 768px) {
+    .qr-print-card {
+      display: none;
+    }
+
+    .qr-mobile-message {
+      display: block;
+    }
+  }
+
+  @media print {
+    .qr-mobile-message {
+      display: none;
+    }
+
+    .qr-print-card {
+      display: block;
+    }
+  }
+</style>
