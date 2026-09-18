@@ -1,15 +1,3 @@
-function getAuthHeaders() {
-    const token = localStorage.getItem("green_lab_session");
-
-    if (!token) {
-        return {};
-    }
-
-    return {
-        "Authorization": `Bearer ${token}`
-    };
-}
-
 const studentInfo = document.getElementById("studentInfo");
 const statusElement = document.getElementById("status");
 const timerElement = document.getElementById("timer");
@@ -20,110 +8,94 @@ const historyElement = document.getElementById("history");
 let currentEntryTime = null;
 let timerInterval = null;
 
+async function getCurrentStudent() {
+    const { data: sessionData, error: sessionError } =
+        await db.auth.getSession();
 
-// --------------------------------------------------
-// Get current student
-// --------------------------------------------------
-
-async function loadStudent() {
-    const response = await fetch(
-    `${API_BASE_URL}/auth/me`,
-    {
-        headers: getAuthHeaders()
-    }
-);
-    if (!response.ok) {
+    if (sessionError || !sessionData.session) {
         throw new Error("Browser is not registered");
     }
 
-    const student = await response.json();
+    const { data, error } = await db
+        .from("students")
+        .select("student_id, name")
+        .eq("auth_user_id", sessionData.session.user.id)
+        .single();
+
+    if (error) {
+        throw error;
+    }
+
+    return data;
+}
+
+async function loadStudent() {
+    const student = await getCurrentStudent();
 
     studentInfo.innerHTML = `
         <strong>${student.name}</strong>
         <br>
         Student ID: ${student.student_id}
     `;
+
+    return student;
 }
-
-
-// --------------------------------------------------
-// Load current attendance state
-// --------------------------------------------------
 
 async function loadCurrentAttendance() {
-    const response = await fetch(
-    `${API_BASE_URL}/attendance/current`,
-    {
-        headers: getAuthHeaders()
-    }
-);
-    if (!response.ok) {
-        throw new Error("Could not load attendance");
+    const student = await getCurrentStudent();
+
+    const { data, error } = await db
+        .from("attendance_sessions")
+        .select("id, entry_time, exit_time, duration_minutes")
+        .eq("student_id", student.student_id)
+        .is("exit_time", null)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        throw error;
     }
 
-    const data = await response.json();
-
-    updateAttendanceUI(data);
+    updateAttendanceUI({
+        inside_lab: Boolean(data),
+        entry_time: data?.entry_time ?? null
+    });
 }
 
-
-// --------------------------------------------------
-// Update UI
-// --------------------------------------------------
-
 function updateAttendanceUI(data) {
-
     if (data.inside_lab) {
-
         currentEntryTime = new Date(
             data.entry_time.replace(" ", "T")
         );
 
         statusElement.textContent = "Currently inside Green Lab";
-        toggleButton.textContent = "Scan to Exit";
-
+        toggleButton.textContent = "Mark Exit";
         startTimer();
-
     } else {
-
         currentEntryTime = null;
-
         statusElement.textContent = "Currently outside Green Lab";
-        toggleButton.textContent = "Scan to Enter";
-
+        toggleButton.textContent = "Mark Entry";
         stopTimer();
         timerElement.textContent = "00:00:00";
     }
 }
 
-
-// --------------------------------------------------
-// Timer
-// --------------------------------------------------
-
 function startTimer() {
-
     stopTimer();
 
     function updateTimer() {
-
-        if (!currentEntryTime) {
-            return;
-        }
-
-        const now = new Date();
+        if (!currentEntryTime) return;
 
         const difference = Math.max(
             0,
             Math.floor(
-                (now - currentEntryTime) / 1000
+                (Date.now() - currentEntryTime.getTime()) / 1000
             )
         );
 
         const hours = Math.floor(difference / 3600);
-        const minutes = Math.floor(
-            (difference % 3600) / 60
-        );
+        const minutes = Math.floor((difference % 3600) / 60);
         const seconds = difference % 60;
 
         timerElement.textContent =
@@ -133,151 +105,125 @@ function startTimer() {
     }
 
     updateTimer();
-
     timerInterval = setInterval(updateTimer, 1000);
 }
 
-
 function stopTimer() {
-
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
 }
 
-
-// --------------------------------------------------
-// Toggle attendance
-// --------------------------------------------------
-
 async function toggleAttendance() {
-
     toggleButton.disabled = true;
     messageElement.textContent = "Recording...";
 
     try {
-        const response = await fetch(
-    `${API_BASE_URL}/attendance/toggle`,
-    {
-        method: "POST",
-        headers: getAuthHeaders()
-    }
-);
-        const data = await response.json();
+        const student = await getCurrentStudent();
 
-        if (!response.ok) {
-            throw new Error(
-                data.detail || "Attendance failed"
-            );
+        const { data: active, error: activeError } = await db
+            .from("attendance_sessions")
+            .select("id, entry_time")
+            .eq("student_id", student.student_id)
+            .is("exit_time", null)
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (activeError) {
+            throw activeError;
         }
 
-        if (data.action === "entry") {
+        if (!active) {
+            const { error } = await db
+                .from("attendance_sessions")
+                .insert({
+                    student_id: student.student_id,
+                    entry_time: new Date().toISOString()
+                });
 
-            messageElement.textContent =
-                `Entry recorded at ${data.entry_time}`;
+            if (error) {
+                throw error;
+            }
 
+            messageElement.textContent = "Entry recorded successfully.";
         } else {
+            const exitDate = new Date();
+            const entryDate = new Date(
+                active.entry_time.replace(" ", "T")
+            );
+
+            const durationMinutes = Math.max(
+                0,
+                Math.floor((exitDate - entryDate) / 60000)
+            );
+
+            const { error } = await db
+                .from("attendance_sessions")
+                .update({
+                    exit_time: exitDate.toISOString(),
+                    duration_minutes: durationMinutes
+                })
+                .eq("id", active.id);
+
+            if (error) {
+                throw error;
+            }
 
             messageElement.textContent =
-                `Exit recorded. Time spent: ` +
-                `${data.duration_minutes} minutes`;
-
+                `Exit recorded. Time spent: ${durationMinutes} minutes.`;
         }
 
         await loadCurrentAttendance();
         await loadHistory();
-
     } catch (error) {
-
         console.error(error);
-
         messageElement.textContent =
-            error.message;
-
+            "Could not record attendance. Please try again.";
     } finally {
-
         toggleButton.disabled = false;
     }
 }
 
-
-// --------------------------------------------------
-// Attendance history
-// --------------------------------------------------
-
 async function loadHistory() {
+    try {
+        const student = await getCurrentStudent();
 
-    const response = await fetch(
-    `${API_BASE_URL}/attendance/me`,
-    {
-        headers: getAuthHeaders()
+        const { data, error } = await db
+            .from("attendance_sessions")
+            .select("entry_time, exit_time, duration_minutes")
+            .eq("student_id", student.student_id)
+            .order("id", { ascending: false })
+            .limit(10);
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            historyElement.textContent = "No attendance records yet.";
+            return;
+        }
+
+        historyElement.innerHTML = data.map(session => `
+            <div class="history-item">
+                <div><strong>Entry:</strong> ${session.entry_time}</div>
+                <div><strong>Exit:</strong> ${session.exit_time || "Inside Lab"}</div>
+                <div><strong>Duration:</strong> ${session.duration_minutes ?? "Active"}${session.duration_minutes !== null ? " min" : ""}</div>
+            </div>
+        `).join("");
+    } catch (error) {
+        console.error(error);
+        historyElement.textContent = "Unable to load attendance history.";
     }
-);
-    if (!response.ok) {
-        historyElement.textContent =
-            "Unable to load attendance history.";
-        return;
-    }
-
-    const history = await response.json();
-
-    if (history.length === 0) {
-        historyElement.textContent =
-            "No attendance records yet.";
-        return;
-    }
-
-    historyElement.innerHTML = history
-        .slice(0, 10)
-        .map(session => {
-
-            const duration =
-                session.duration_minutes !== null
-                    ? `${session.duration_minutes} min`
-                    : "Active";
-
-            return `
-                <div class="history-item">
-                    <div>
-                        <strong>Entry:</strong>
-                        ${session.entry_time}
-                    </div>
-
-                    <div>
-                        <strong>Exit:</strong>
-                        ${session.exit_time || "Inside Lab"}
-                    </div>
-
-                    <div>
-                        <strong>Duration:</strong>
-                        ${duration}
-                    </div>
-                </div>
-            `;
-        })
-        .join("");
 }
 
-
-// --------------------------------------------------
-// QR scan detection
-// --------------------------------------------------
-
 async function handleQRScan() {
+    const params = new URLSearchParams(window.location.search);
 
-    const params =
-        new URLSearchParams(window.location.search);
+    if (params.get("action") !== "scan") return;
 
-    const action = params.get("action");
-
-    if (action !== "scan") {
-        return;
-    }
-
-    // Remove the query parameter immediately.
-    // This prevents a browser refresh from
-    // performing another attendance toggle.
     window.history.replaceState(
         {},
         document.title,
@@ -287,23 +233,13 @@ async function handleQRScan() {
     await toggleAttendance();
 }
 
-
-// --------------------------------------------------
-// Start application
-// --------------------------------------------------
-
 async function start() {
-
     try {
-
         await loadStudent();
         await loadCurrentAttendance();
         await loadHistory();
-
         await handleQRScan();
-
     } catch (error) {
-
         console.error(error);
 
         studentInfo.textContent =
@@ -315,15 +251,9 @@ async function start() {
         toggleButton.disabled = true;
 
         messageElement.innerHTML =
-            `Open <a href="/frontend/">Student Registration</a>`;
+            `Open <a href="index.html">Student Registration</a>`;
     }
 }
 
-
-toggleButton.addEventListener(
-    "click",
-    toggleAttendance
-);
-
+toggleButton.addEventListener("click", toggleAttendance);
 start();
-
