@@ -1,0 +1,6 @@
+name = "green-lab"
+main = "src/index.js"
+compatibility_date = "2026-09-18"
+
+[vars]
+SUPABASE_URL = "https://dvxfxbvdsubigemrqiph.supabase.co"
