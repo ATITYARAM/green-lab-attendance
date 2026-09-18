@@ -1,267 +1,156 @@
-const studentInfo = document.getElementById("studentInfo");
-const statusElement = document.getElementById("status");
-const timerElement = document.getElementById("timer");
-const toggleButton = document.getElementById("toggleButton");
-const messageElement = document.getElementById("message");
-const historyElement = document.getElementById("history");
+---
+import Layout from "../layouts/Layout.astro";
 
-let currentEntryTime = null;
-let timerInterval = null;
+const base = import.meta.env.BASE_URL;
+const siteUrl = new URL(base, Astro.site).href;
+---
 
-async function getCurrentStudent() {
-    const { data, error } = await db.auth.getSession();
+<Layout
+  title="Green Lab | Attendance"
+  description="Green Lab attendance tracker"
+>
 
-    if (error || !data.session) {
-        throw new Error("Browser is not registered");
+    <section class="green-hud" aria-label="Green Lab status">
+      <div class="hud-brand">
+        <div class="hud-leaf">♧</div>
+        <div><strong>Green Lab</strong><span>Attendance System</span></div>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">STUDENT</span>
+        <strong id="hudStudent">Loading...</strong>
+        <span id="hudStudentId">ID: —</span>
+      </div>
+      <div class="hud-item hud-status">
+        <span class="hud-label">CURRENT STATUS</span>
+        <strong id="hudStatus">Checking...</strong>
+        <span id="hudSince">—</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LAST ACTION</span>
+        <strong id="hudAction">—</strong>
+        <span id="hudActionTime">—</span>
+      </div>
+      <div class="hud-clock">
+        <span id="hudClock">—</span>
+        <span>● Lab Open</span>
+      </div>
+    </section>
+
+  <main class="container">
+    <section class="registration-card">
+      <div class="header">
+        <h1>Green Lab</h1>
+        <p>Attendance</p>
+      </div>
+
+      <div id="studentInfo">Loading student...</div>
+      <div id="status" class="attendance-status">Checking attendance...</div>
+      <div id="timer" class="timer">00:00:00</div>
+
+      <button id="toggleButton" type="button">Mark Entry</button>
+      <p id="message" role="status" aria-live="polite"></p>
+
+      <div class="history-section">
+        <h2>Recent Attendance</h2>
+        <div id="history">Loading history...</div>
+      </div>
+    </section>
+
+    <section class="qr-panel">
+      <div class="qr-card">
+        <h2>Entry QR</h2>
+        <div id="entryQr" class="qrcode"></div>
+        <p>Scan to mark entry.</p>
+      </div>
+
+      <div class="qr-card">
+        <h2>Exit QR</h2>
+        <div id="exitQr" class="qrcode"></div>
+        <p>Scan to mark exit.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src={base + "js/config.js"}></script>
+  <script src={base + "js/worker.js"}></script>
+  <script src={base + "js/attendance.js"}></script>
+  <script is:inline define:vars={{ siteUrl }}>
+    const qrPanel = document.querySelector(".qr-panel");
+
+    function updateQrVisibility() {
+      if (!qrPanel) return;
+
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        qrPanel.style.setProperty("display", "none", "important");
+      } else {
+        qrPanel.style.removeProperty("display");
+      }
     }
 
-    return await workerRequest("/students/me");
-}
-
-async function loadStudent() {
-    const student = await getCurrentStudent();
-
-    studentInfo.innerHTML =
-        "<strong>" + student.name + "</strong><br>" +
-        "Student ID: " + student.student_id;
-
-    return student;
-}
-
-async function loadCurrentAttendance() {
-    const data = await workerRequest("/attendance/current");
-
-    updateAttendanceUI({
-        inside_lab: data.inside_lab,
-        entry_time: data.session?.entry_time || null
-    });
-}
-
-function updateAttendanceUI(data) {
-    if (data.inside_lab) {
-        currentEntryTime = new Date(data.entry_time);
-        statusElement.textContent = "Currently inside Green Lab";
-        toggleButton.textContent = "Mark Exit";
-        startTimer();
-    } else {
-        currentEntryTime = null;
-        statusElement.textContent = "Currently outside Green Lab";
-        toggleButton.textContent = "Mark Entry";
-        stopTimer();
-        timerElement.textContent = "00:00:00";
-    }
-}
-
-function startTimer() {
-    stopTimer();
-
-    function updateTimer() {
-        if (!currentEntryTime) return;
-
-        const difference = Math.max(
-            0,
-            Math.floor((Date.now() - currentEntryTime.getTime()) / 1000)
-        );
-
-        const hours = Math.floor(difference / 3600);
-        const minutes = Math.floor((difference % 3600) / 60);
-        const seconds = difference % 60;
-
-        timerElement.textContent =
-            String(hours).padStart(2, "0") + ":" +
-            String(minutes).padStart(2, "0") + ":" +
-            String(seconds).padStart(2, "0");
-    }
-
-    updateTimer();
-    timerInterval = setInterval(updateTimer, 1000);
-}
-
-function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-}
-
-async function toggleAttendance() {
-    toggleButton.disabled = true;
-    messageElement.textContent = "Recording...";
-
-    try {
-        const current = await workerRequest("/attendance/current");
-
-        if (!current.inside_lab) {
-            const result = await workerRequest("/attendance/entry", {
-                method: "POST"
-            });
-
-            const session = Array.isArray(result) ? result[0] : result;
-
-            messageElement.textContent = "Entry recorded successfully.";
-
-            updateAttendanceUI({
-                inside_lab: true,
-                entry_time: session?.entry_time || new Date().toISOString()
-            });
-        } else {
-            const result = await workerRequest("/attendance/exit", {
-                method: "POST"
-            });
-
-            const session = Array.isArray(result) ? result[0] : result;
-
-            messageElement.textContent =
-                "Exit recorded. Time spent: " +
-                (session?.duration_minutes ?? 0) +
-                " minutes.";
-
-            updateAttendanceUI({
-                inside_lab: false,
-                entry_time: null
-            });
-        }
-
-        await loadHistory();
-    } catch (error) {
-        console.error(error);
-        messageElement.textContent =
-            error?.message || "Could not record attendance. Please try again.";
-    } finally {
-        toggleButton.disabled = false;
-    }
-}
-
-async function loadHistory() {
-    try {
-        const data = await workerRequest("/attendance/history");
-
-        if (!data || data.length === 0) {
-            historyElement.textContent = "No attendance records yet.";
-            return;
-        }
-
-        historyElement.innerHTML = data.map((session) => {
-            const duration =
-                session.duration_minutes === null ||
-                session.duration_minutes === undefined
-                    ? "Active"
-                    : session.duration_minutes + " min";
-
-            return (
-                '<div class="history-item">' +
-                "<div><strong>Entry:</strong> " + formatAttendanceTime(session.entry_time) + "</div>" +
-                "<div><strong>Exit:</strong> " +
-                (session.exit_time ? formatAttendanceTime(session.exit_time) : "Inside Lab") +
-                "</div>" +
-                "<div><strong>Duration:</strong> " + duration + "</div>" +
-                "</div>"
-            );
-        }).join("");
-    } catch (error) {
-        console.error(error);
-        historyElement.textContent = "Unable to load attendance history.";
-    }
-}
-
-const DISPLAY_TIME_ZONE = "Asia/Kolkata";
-
-function formatAttendanceTime(value) {
-    if (!value) return "—";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat("en-IN", {
-        timeZone: DISPLAY_TIME_ZONE,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-    }).format(date);
-}
-
-function getScanAction() {
-    return new URLSearchParams(window.location.search).get("action");
-}
-
-async function handleQRScan() {
-    const action = getScanAction();
-
-    if (action !== "entry" && action !== "exit") return;
-
-    window.history.replaceState({}, document.title, window.location.pathname);
-
-    if (action === "entry") {
-        const current = await workerRequest("/attendance/current");
-        if (current.inside_lab) {
-            messageElement.textContent = "You are already inside Green Lab.";
-            return;
-        }
-
-        const result = await workerRequest("/attendance/entry", {
-            method: "POST"
-        });
-
-        const session = Array.isArray(result) ? result[0] : result;
-
-        updateAttendanceUI({
-            inside_lab: true,
-            entry_time: session?.entry_time || new Date().toISOString()
-        });
-
-        messageElement.textContent = "Entry recorded successfully.";
-        await loadHistory();
-        return;
-    }
-
-    const current = await workerRequest("/attendance/current");
-
-    if (!current.inside_lab) {
-        messageElement.textContent = "No active entry found.";
-        return;
-    }
-
-    const result = await workerRequest("/attendance/exit", {
-        method: "POST"
+    updateQrVisibility();
+    window.addEventListener("resize", updateQrVisibility);
+    new QRCode(document.getElementById("entryQr"), {
+      text: siteUrl + "entry.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
     });
 
-    const session = Array.isArray(result) ? result[0] : result;
-
-    updateAttendanceUI({
-        inside_lab: false,
-        entry_time: null
+    new QRCode(document.getElementById("exitQr"), {
+      text: siteUrl + "exit.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
     });
-
-    messageElement.textContent =
-        "Exit recorded. Time spent: " +
-        (session?.duration_minutes ?? 0) +
-        " minutes.";
-
-    await loadHistory();
-}
-
-async function start() {
-    try {
-        await loadStudent();
-        await loadCurrentAttendance();
-        await loadHistory();
-        await handleQRScan();
-    } catch (error) {
-        console.error(error);
-
-        studentInfo.textContent = "This browser is not registered.";
-        statusElement.textContent = "Please register this browser first.";
-        toggleButton.disabled = true;
-        messageElement.innerHTML = '<a href="index.html">Student Registration</a>';
+  </script>
+  <style>
+    .green-hud {
+      width: min(100% - 32px, 1400px);
+      margin: 24px auto 0;
+      padding: 16px 22px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1.25fr 1.1fr auto;
+      gap: 18px;
+      align-items: center;
+      border: 1px solid #1f8f55;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #073d2a, #0b5a3b 55%, #073d2a);
+      color: #eafff2;
+      box-shadow: 0 10px 30px rgba(10, 91, 59, .25);
     }
-}
+    .hud-brand, .hud-item, .hud-clock { min-width: 0; }
+    .hud-brand, .hud-item { display: flex; flex-direction: column; gap: 3px; }
+    .hud-brand { flex-direction: row; align-items: center; gap: 10px; }
+    .hud-brand strong { font-size: 19px; }
+    .hud-brand span, .hud-item span, .hud-clock { font-size: 12px; opacity: .78; }
+    .hud-leaf { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #43d68a; border-radius: 50%; color: #43d68a; font-size: 20px; }
+    .hud-label { font-size: 10px !important; letter-spacing: 1px; color: #72e9a8; opacity: 1 !important; }
+    .hud-item strong { font-size: 17px; }
+    .hud-status strong { color: #52e89a; }
+    .hud-clock { display: flex; flex-direction: column; gap: 5px; text-align: right; white-space: nowrap; }
+    .hud-clock span:last-child { color: #6ff0a5; opacity: 1; }
+    @media (max-width: 900px) {
+      .green-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hud-brand { grid-column: 1 / -1; }
+      .hud-clock { text-align: left; }
+    }
+    @media (max-width: 600px) {
+      .green-hud { width: min(100% - 20px, 900px); margin-top: 12px; padding: 14px; grid-template-columns: 1fr 1fr; border-radius: 14px; gap: 12px; }
+      .hud-brand { grid-column: 1 / -1; }
+      .hud-brand strong { font-size: 17px; }
+      .hud-item strong { font-size: 14px; }
+      .hud-item span, .hud-clock { font-size: 11px; }
+      .hud-clock { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; text-align: left; }
+    }
+    @media (max-width: 768px) {
+      .qr-panel {
+        display: none;
+      }
+    }
+  </style>
+</Layout>
 
-toggleButton.addEventListener("click", toggleAttendance);
-start();
+updateHudClock();
+setInterval(updateHudClock, 1000);
