@@ -218,6 +218,12 @@ button:disabled { opacity: .6; cursor: not-allowed; }
     padding: 12px 22px;
 }
 
+@media (max-width: 768px) {
+    .qr-panel {
+        display: none;
+    }
+}
+
 @media print {
     body { background: #fff; }
 
