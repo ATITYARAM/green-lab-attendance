@@ -122,7 +122,7 @@ function shouldShowPostExitButton() {
     return true;
 }
 
-async function loadAttendanceAction() {
+async function loadAttendanceAction(showEntryWhenOutside = false) {
     const current = await workerRequest("/attendance/current");
 
     if (current.inside_lab) {
@@ -132,7 +132,7 @@ async function loadAttendanceAction() {
         return;
     }
 
-    if (shouldShowPostExitButton()) {
+    if (showEntryWhenOutside || shouldShowPostExitButton()) {
         showAttendanceArea();
         setAttendanceButton(false);
         return;
@@ -205,7 +205,7 @@ async function registerDevice(event) {
 
         message.textContent = "Device registered successfully.";
 
-        await loadAttendanceAction();
+        await loadAttendanceAction(true);
     } catch (error) {
         showRegistrationError(error);
     }
