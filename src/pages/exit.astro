@@ -1,0 +1,30 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout
+  title="Green Lab | Exit"
+  description="Green Lab automatic exit"
+>
+  <main class="container">
+    <section class="registration-card action-card">
+      <div class="header">
+        <h1>Green Lab</h1>
+        <p>Exit</p>
+      </div>
+
+      <div id="actionStatus">Checking device...</div>
+      <p id="actionMessage" role="status" aria-live="polite">Please wait.</p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src={base + "js/config.js"}></script>
+  <script src={base + "js/worker.js"}></script>
+  <script src={base + "js/qr-action.js"}></script>
+  <script is:inline>
+    runAttendanceAction("exit");
+  </script>
+</Layout>

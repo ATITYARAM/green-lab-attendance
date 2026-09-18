@@ -1,0 +1,82 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const base = import.meta.env.BASE_URL;
+const siteUrl = new URL(base, Astro.site).href;
+---
+
+<Layout
+  title="Green Lab | Registration"
+  description="Green Lab student registration and attendance system"
+>
+  <main class="container">
+    <section class="registration-card">
+      <div class="header">
+        <h1>Green Lab</h1>
+        <p>Student Registration</p>
+      </div>
+
+      <form id="registrationForm" autocomplete="off">
+        <div class="form-group">
+          <label for="studentId">Student ID</label>
+          <input
+            id="studentId"
+            type="text"
+            placeholder="Enter your student ID"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input
+            id="name"
+            type="text"
+            placeholder="Enter your full name"
+            autocomplete="name"
+            required
+          />
+        </div>
+
+        <button id="registerButton" type="submit">Register</button>
+      </form>
+
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="qr-panel">
+      <div class="qr-card">
+        <h2>Entry QR</h2>
+        <div id="entryQr" class="qrcode" aria-label="Green Lab entry QR code"></div>
+        <p>Scan this QR to mark entry.</p>
+      </div>
+
+      <div class="qr-card">
+        <h2>Exit QR</h2>
+        <div id="exitQr" class="qrcode" aria-label="Green Lab exit QR code"></div>
+        <p>Scan this QR to mark exit.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src={base + "js/config.js"}></script>
+  <script src={base + "js/worker.js"}></script>
+  <script src={base + "js/app.js"}></script>
+  <script is:inline define:vars={{ siteUrl }}>
+    new QRCode(document.getElementById("entryQr"), {
+      text: siteUrl + "entry.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    new QRCode(document.getElementById("exitQr"), {
+      text: siteUrl + "exit.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  </script>
+</Layout>

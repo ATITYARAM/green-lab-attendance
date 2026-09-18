@@ -2,127 +2,83 @@
 
 Green Lab student attendance and lab time tracking system.
 
-## Deployment architecture
+## Stack
 
-Student browser
--> GitHub Pages
--> Supabase Auth (anonymous session)
--> Cloudflare Worker
--> Supabase PostgreSQL + RLS
+- Astro static frontend
+- GitHub Pages for the static site
+- Supabase Auth for browser sessions
+- Cloudflare Worker for API requests
+- Supabase PostgreSQL for persistent attendance data
 
-The browser uses Supabase Auth only to create/restore its anonymous session. Student registration and attendance data operations go through the Cloudflare Worker.
+## Project structure
 
-## GitHub repository
+```text
+src/
+  layouts/
+  pages/
 
-Repository: RakhulJM/green-lab-attendance
-Active deployment branch: green
+public/
+  css/
+  js/
 
-GitHub Pages:
-- Source branch: green
-- Folder: /docs
+docs/                 # Generated GitHub Pages output
+worker/               # Cloudflare Worker API
+backend/              # Legacy local FastAPI implementation
+astro.config.mjs
+package.json
+tsconfig.json
+```
 
-Cloudflare Worker source:
-- worker/src/index.js
-- worker/wrangler.toml
+The repository uses Astro at the root. There is no nested Astro project.
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the Astro development server:
+
+```bash
+npm run dev
+```
+
+Build the static GitHub Pages site:
+
+```bash
+npm run build
+```
+
+The Astro build writes the static site to `docs/` so the existing GitHub Pages deployment path remains unchanged.
+
+## Attendance flow
+
+Student registration creates a Supabase anonymous session and links the browser session to the registered student.
+
+The attendance pages use the existing Worker API to:
+
+- identify the registered student
+- record entry
+- record exit
+- calculate time spent
+- display recent attendance
+
+The QR entry and exit pages remain:
+
+- `entry.html`
+- `exit.html`
 
 ## Cloudflare Worker
 
-Worker name:
+Worker source:
 
-green-lab
+`worker/src/index.js`
 
-Worker URL:
+Runtime configuration:
 
-https://green-lab.atityaramsureshmanickam.workers.dev
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY` as a Worker secret
 
-### API routes
-
-GET /
-GET /health
-POST /students/register
-GET /students/me
-GET /attendance/current
-GET /attendance/history
-POST /attendance/entry
-POST /attendance/exit
-
-### Exact Worker source
-
-The deployable Worker source is stored in:
-
-worker/src/index.js
-
-Paste that file into Cloudflare Workers if creating the Worker from the Cloudflare dashboard.
-
-The Worker:
-1. Accepts CORS requests from GitHub Pages.
-2. Reads the Supabase Auth bearer token from Authorization.
-3. Verifies the token by calling Supabase Auth.
-4. Finds the student linked to that Auth user.
-5. Reads/writes attendance through the Supabase REST API.
-6. Never requires a Supabase service-role key.
-
-## Cloudflare runtime configuration
-
-Set these in the Cloudflare Worker.
-
-Variable:
-SUPABASE_URL
-
-Value:
-https://dvxfxbvdsubigemrqiph.supabase.co
-
-Secret:
-SUPABASE_PUBLISHABLE_KEY
-
-Value:
-Use the Green Lab Supabase publishable key.
-
-Recommended CLI setup:
-
-npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
-npx wrangler deploy
-
-Do NOT put a database connection password or Supabase service-role key in GitHub or in public Worker code.
-
-SUPABASE_URL is already defined in worker/wrangler.toml.
-
-## Cloudflare dashboard setup
-
-When creating the Worker:
-1. Create Worker named green-lab.
-2. Replace the starter Worker code with worker/src/index.js.
-3. Deploy it.
-4. Open Settings -> Variables and Secrets.
-5. Add SUPABASE_URL as a variable.
-6. Add SUPABASE_PUBLISHABLE_KEY as a secret.
-7. Redeploy if the dashboard requests it.
-8. Confirm the Worker URL is:
-   https://green-lab.atityaramsureshmanickam.workers.dev
-
-## Supabase
-
-Project: Green Lab
-Project ref: dvxfxbvdsubigemrqiph
-Region: ap-northeast-1
-
-Required:
-- Anonymous Sign-Ins enabled.
-- RLS enabled on students and attendance_sessions.
-- students.auth_user_id linked to the Supabase Auth user.
-
-The publishable key is safe to use in browser/Worker public applications, but it does not replace RLS. Never use a service-role key in frontend code.
-
-## Local deployment
-
-From the repository:
-
-cd worker
-npm install -D wrangler
-npx wrangler login
-npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
-npx wrangler deploy
-
-## Legacy backend
-
-backend/ contains the previous FastAPI implementation. It is not required for the current green deployment.
+Never commit database passwords or service-role keys.

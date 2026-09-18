@@ -1,0 +1,67 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const base = import.meta.env.BASE_URL;
+const siteUrl = new URL(base, Astro.site).href;
+---
+
+<Layout
+  title="Green Lab | Attendance"
+  description="Green Lab attendance tracker"
+>
+  <main class="container">
+    <section class="registration-card">
+      <div class="header">
+        <h1>Green Lab</h1>
+        <p>Attendance</p>
+      </div>
+
+      <div id="studentInfo">Loading student...</div>
+      <div id="status" class="attendance-status">Checking attendance...</div>
+      <div id="timer" class="timer">00:00:00</div>
+
+      <button id="toggleButton" type="button">Mark Entry</button>
+      <p id="message" role="status" aria-live="polite"></p>
+
+      <div class="history-section">
+        <h2>Recent Attendance</h2>
+        <div id="history">Loading history...</div>
+      </div>
+    </section>
+
+    <section class="qr-panel">
+      <div class="qr-card">
+        <h2>Entry QR</h2>
+        <div id="entryQr" class="qrcode"></div>
+        <p>Scan to mark entry.</p>
+      </div>
+
+      <div class="qr-card">
+        <h2>Exit QR</h2>
+        <div id="exitQr" class="qrcode"></div>
+        <p>Scan to mark exit.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src={base + "js/config.js"}></script>
+  <script src={base + "js/worker.js"}></script>
+  <script src={base + "js/attendance.js"}></script>
+  <script is:inline define:vars={{ siteUrl }}>
+    new QRCode(document.getElementById("entryQr"), {
+      text: siteUrl + "entry.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    new QRCode(document.getElementById("exitQr"), {
+      text: siteUrl + "exit.html",
+      width: 220,
+      height: 220,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  </script>
+</Layout>
