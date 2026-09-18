@@ -50,6 +50,20 @@ const siteUrl = new URL(base, Astro.site).href;
   <script src={base + "js/worker.js"}></script>
   <script src={base + "js/attendance.js"}></script>
   <script is:inline define:vars={{ siteUrl }}>
+    const qrPanel = document.querySelector(".qr-panel");
+
+    function updateQrVisibility() {
+      if (!qrPanel) return;
+
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        qrPanel.style.setProperty("display", "none", "important");
+      } else {
+        qrPanel.style.removeProperty("display");
+      }
+    }
+
+    updateQrVisibility();
+    window.addEventListener("resize", updateQrVisibility);
     new QRCode(document.getElementById("entryQr"), {
       text: siteUrl + "entry.html",
       width: 220,
