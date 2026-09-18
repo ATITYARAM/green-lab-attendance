@@ -4,52 +4,74 @@ Simple attendance and lab time-tracking system for Green Lab.
 
 ## Architecture
 
-```
-Student
-  |
-  v
-GitHub Pages (static HTML/CSS/JS)
-  |
-  | supabase-js
-  v
-Supabase "Green Lab"
-  +-- Auth
-  +-- PostgreSQL
-  +-- Row Level Security
-```
+Student -> GitHub Pages -> Cloudflare Worker -> Supabase Green Lab
 
-The `green` branch uses GitHub Pages + Supabase only. No FastAPI or Render deployment is required.
-
-## Working flow
-
-1. Student opens the GitHub Pages registration page.
-2. The browser creates a Supabase anonymous Auth session.
-3. Student enters Student ID and name.
-4. The student record is stored in `students` and linked to the Auth user.
-5. The attendance page identifies the same browser through Supabase Auth.
-6. Mark Entry creates an `attendance_sessions` row.
-7. Mark Exit updates the active row with exit time and duration.
-8. Recent attendance is loaded directly from Supabase.
-9. Row Level Security limits each browser session to its own student records.
-
-## Supabase
-
-Project: **Green Lab**  
-Project ref: `dvxfxbvdsubigemrqiph`  
-Region: `ap-northeast-1`
-
-Only the browser-safe Supabase publishable key belongs in frontend code. Never commit a database password or service-role/secret key.
-
-Enable **Anonymous Sign-Ins** in Supabase Auth for the registration flow.
-
-## GitHub Pages
-
-Publish the `docs/` directory from the `green` branch using GitHub Pages.
-
-## Legacy backend
-
-The existing FastAPI backend remains in the repository for reference. It is not used by the `green` branch frontend.
+The green branch contains the GitHub Pages frontend and Cloudflare Worker source.
 
 ## Cloudflare Worker
 
-The connected repository integrations did not expose the existing Cloudflare Worker source, so no Worker implementation is being invented or copied. The current application does not require a Worker for its Supabase-only flow.
+Worker URL:
+
+https://green-lab.atityaramsureshmanickam.workers.dev
+
+Source:
+
+worker/src/index.js
+
+Configuration:
+
+worker/wrangler.toml
+
+Routes:
+
+- GET / - Worker status
+- GET /health - health check
+- POST /students/register - register the authenticated browser
+- GET /students/me - current student
+- GET /attendance/current - active session
+- GET /attendance/history - recent attendance
+- POST /attendance/entry - mark entry
+- POST /attendance/exit - mark exit
+
+The Worker forwards the user's Supabase Auth JWT to Supabase. It does not use a service-role key.
+
+## Cloudflare runtime variables
+
+Set these in the Worker:
+
+SUPABASE_URL
+https://dvxfxbvdsubigemrqiph.supabase.co
+
+SUPABASE_PUBLISHABLE_KEY
+Use the Green Lab Supabase publishable key.
+
+Recommended deployment command:
+
+npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
+npx wrangler deploy
+
+SUPABASE_URL is non-secret and is already in wrangler.toml.
+
+Never commit a database password, service-role key, or other privileged secret.
+
+## Supabase
+
+Project: Green Lab
+Project ref: dvxfxbvdsubigemrqiph
+Region: ap-northeast-1
+
+Enable Anonymous Sign-Ins in Supabase Auth.
+
+RLS must remain enabled on the application tables.
+
+## GitHub Pages
+
+Publish the docs/ directory from the green branch using GitHub Pages.
+
+docs/js/worker.js contains the Worker URL and sends the current Supabase Auth bearer token to the Worker.
+
+The existing Supabase client is still used for Auth session management. Application data requests can use the Worker API.
+
+## Legacy backend
+
+The existing FastAPI backend remains in the repository for reference. It is not required for the Worker/GitHub Pages deployment.
