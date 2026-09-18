@@ -9,7 +9,21 @@ const attendanceUrl = new URL(
 ---
 
 <Layout title="Green Lab | Attendance QR">
+  <script is:inline>
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    if (isIOS || isAndroid) {
+      document.documentElement.classList.add("mobile-device");
+    }
+  </script>
+
   <main class="qr-print-page">
+    <section class="qr-mobile-message" aria-live="polite">
+      <h1>QR Code Not Available on Mobile</h1>
+      <p>The Green Lab attendance QR code is available only on desktop browsers for printing and display.</p>
+    </section>
     <section class="qr-print-card">
       <h1>Green Lab</h1>
       <p>Scan this QR code to record Green Lab attendance.</p>
