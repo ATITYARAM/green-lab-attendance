@@ -8,6 +8,33 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
+    <section class="green-hud" aria-label="Green Lab status">
+        <div class="hud-brand">
+            <div class="hud-leaf">♧</div>
+            <div><strong>Green Lab</strong><span>Attendance System</span></div>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">STUDENT</span>
+            <strong id="hudStudent">Loading...</strong>
+            <span id="hudStudentId">ID: —</span>
+        </div>
+        <div class="hud-item hud-status">
+            <span class="hud-label">CURRENT STATUS</span>
+            <strong id="hudStatus">Checking...</strong>
+            <span id="hudSince">—</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">LAST ACTION</span>
+            <strong id="hudAction">—</strong>
+            <span id="hudActionTime">—</span>
+        </div>
+        <div class="hud-clock">
+            <span id="hudClock">—</span>
+            <span>● Lab Open</span>
+        </div>
+    </section>
+
     <main class="container">
         <section class="registration-card">
             <div class="header">
@@ -82,6 +109,45 @@
         });
     </script>
     <style>
+
+        .green-hud {
+            width: min(100% - 32px, 1400px);
+            margin: 24px auto 0;
+            padding: 16px 22px;
+            display: grid;
+            grid-template-columns: 1.1fr 1fr 1.25fr 1.1fr auto;
+            gap: 18px;
+            align-items: center;
+            border: 1px solid #1f8f55;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #073d2a, #0b5a3b 55%, #073d2a);
+            color: #eafff2;
+            box-shadow: 0 10px 30px rgba(10, 91, 59, .25);
+        }
+        .hud-brand, .hud-item, .hud-clock { min-width: 0; }
+        .hud-brand, .hud-item { display: flex; flex-direction: column; gap: 3px; }
+        .hud-brand { flex-direction: row; align-items: center; gap: 10px; }
+        .hud-brand strong { font-size: 19px; }
+        .hud-brand span, .hud-item span, .hud-clock { font-size: 12px; opacity: .78; }
+        .hud-leaf { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #43d68a; border-radius: 50%; color: #43d68a; font-size: 20px; }
+        .hud-label { font-size: 10px !important; letter-spacing: 1px; color: #72e9a8; opacity: 1 !important; }
+        .hud-item strong { font-size: 17px; }
+        .hud-status strong { color: #52e89a; }
+        .hud-clock { display: flex; flex-direction: column; gap: 5px; text-align: right; white-space: nowrap; }
+        .hud-clock span:last-child { color: #6ff0a5; opacity: 1; }
+        @media (max-width: 900px) {
+            .green-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .hud-brand { grid-column: 1 / -1; }
+            .hud-clock { text-align: left; }
+        }
+        @media (max-width: 600px) {
+            .green-hud { width: min(100% - 20px, 900px); margin-top: 12px; padding: 14px; grid-template-columns: 1fr 1fr; border-radius: 14px; gap: 12px; }
+            .hud-brand { grid-column: 1 / -1; }
+            .hud-brand strong { font-size: 17px; }
+            .hud-item strong { font-size: 14px; }
+            .hud-item span, .hud-clock { font-size: 11px; }
+            .hud-clock { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; text-align: left; }
+        }
         @media (max-width: 768px) {
             .qr-panel {
                 display: none;
