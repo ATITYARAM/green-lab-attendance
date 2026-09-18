@@ -40,7 +40,6 @@ async function loadCurrentAttendance() {
 function updateAttendanceUI(data) {
     if (data.inside_lab) {
         currentEntryTime = new Date(data.entry_time);
-
         statusElement.textContent = "Currently inside Green Lab";
         toggleButton.textContent = "Mark Exit";
         startTimer();
@@ -97,9 +96,10 @@ async function toggleAttendance() {
                 method: "POST"
             });
 
+            const session = Array.isArray(result) ? result[0] : result;
+
             messageElement.textContent = "Entry recorded successfully.";
 
-            const session = Array.isArray(result) ? result[0] : result;
             updateAttendanceUI({
                 inside_lab: true,
                 entry_time: session?.entry_time || new Date().toISOString()
@@ -126,7 +126,7 @@ async function toggleAttendance() {
     } catch (error) {
         console.error(error);
         messageElement.textContent =
-            "Could not record attendance. Please try again.";
+            error?.message || "Could not record attendance. Please try again.";
     } finally {
         toggleButton.disabled = false;
     }
@@ -160,23 +160,68 @@ async function loadHistory() {
         }).join("");
     } catch (error) {
         console.error(error);
-        historyElement.textContent =
-            "Unable to load attendance history.";
+        historyElement.textContent = "Unable to load attendance history.";
     }
 }
 
+function getScanAction() {
+    return new URLSearchParams(window.location.search).get("action");
+}
+
 async function handleQRScan() {
-    const params = new URLSearchParams(window.location.search);
+    const action = getScanAction();
 
-    if (params.get("action") !== "scan") return;
+    if (action !== "entry" && action !== "exit") return;
 
-    window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-    );
+    window.history.replaceState({}, document.title, window.location.pathname);
 
-    await toggleAttendance();
+    if (action === "entry") {
+        const current = await workerRequest("/attendance/current");
+        if (current.inside_lab) {
+            messageElement.textContent = "You are already inside Green Lab.";
+            return;
+        }
+
+        const result = await workerRequest("/attendance/entry", {
+            method: "POST"
+        });
+
+        const session = Array.isArray(result) ? result[0] : result;
+
+        updateAttendanceUI({
+            inside_lab: true,
+            entry_time: session?.entry_time || new Date().toISOString()
+        });
+
+        messageElement.textContent = "Entry recorded successfully.";
+        await loadHistory();
+        return;
+    }
+
+    const current = await workerRequest("/attendance/current");
+
+    if (!current.inside_lab) {
+        messageElement.textContent = "No active entry found.";
+        return;
+    }
+
+    const result = await workerRequest("/attendance/exit", {
+        method: "POST"
+    });
+
+    const session = Array.isArray(result) ? result[0] : result;
+
+    updateAttendanceUI({
+        inside_lab: false,
+        entry_time: null
+    });
+
+    messageElement.textContent =
+        "Exit recorded. Time spent: " +
+        (session?.duration_minutes ?? 0) +
+        " minutes.";
+
+    await loadHistory();
 }
 
 async function start() {
@@ -188,16 +233,10 @@ async function start() {
     } catch (error) {
         console.error(error);
 
-        studentInfo.textContent =
-            "This browser is not registered.";
-
-        statusElement.textContent =
-            "Please register this browser first.";
-
+        studentInfo.textContent = "This browser is not registered.";
+        statusElement.textContent = "Please register this browser first.";
         toggleButton.disabled = true;
-
-        messageElement.innerHTML =
-            '<a href="index.html">Student Registration</a>';
+        messageElement.innerHTML = '<a href="index.html">Student Registration</a>';
     }
 }
 

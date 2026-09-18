@@ -1,6 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-device-token",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS"
 };
 
@@ -40,6 +40,13 @@ async function supabase(env, request, path, options = {}) {
   return { response, data };
 }
 
+async function supabaseRpc(env, request, functionName, body) {
+  return await supabase(env, request, "/rest/v1/rpc/" + functionName, {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+}
+
 async function authUser(env, request) {
   const authorization = request.headers.get("Authorization");
   if (!authorization) return null;
@@ -53,6 +60,14 @@ async function authUser(env, request) {
 }
 
 async function student(env, request) {
+  const deviceToken = request.headers.get("X-Device-Token");
+  if (!deviceToken) return null;
+  const result = await supabaseRpc(env, request, "student_by_device", { p_device_token: deviceToken });
+  if (!result.response.ok || !result.data?.student_id) return null;
+  return result.data;
+}
+
+async function studentByAuth(env, request) {
   const user = await authUser(env, request);
   if (!user) return null;
 
@@ -109,58 +124,18 @@ export default {
       if (url.pathname === "/students/register" && request.method === "POST") {
         const user = await authUser(env, request);
         if (!user) return json({ error: "Authentication required." }, 401);
-
         const body = await request.json();
         const studentId = String(body.student_id || "").trim();
         const name = String(body.name || "").trim();
-
-        if (!studentId || !name) {
-          return json({ error: "student_id and name are required." }, 400);
-        }
-
-        if (studentId.length > 50 || name.length > 100) {
-          return json({ error: "Student ID or name is too long." }, 400);
-        }
-
-        // Same authenticated browser can safely retry registration.
-        const existing = await student(env, request);
-
-        if (existing) {
-          if (existing.student_id !== studentId) {
-            return json({
-              error: "This browser is already registered with Student ID " + existing.student_id + "."
-            }, 409);
-          }
-          return json(existing);
-        }
-
-        const result = await supabase(env, request, "/rest/v1/students", {
-          method: "POST",
-          headers: { Prefer: "return=representation" },
-          body: JSON.stringify({
-            student_id: studentId,
-            name,
-            auth_user_id: user.id
-          })
+        const deviceToken = String(body.device_token || request.headers.get("X-Device-Token") || "").trim();
+        if (!studentId || !name || !deviceToken) return json({ error: "student_id, name and device_token are required." }, 400);
+        if (deviceToken.length > 200) return json({ error: "Invalid device token." }, 400);
+        const result = await supabaseRpc(env, request, "register_student_device", {
+          p_student_id: studentId, p_name: name, p_device_token: deviceToken
         });
-
         if (!result.response.ok) {
-          const code = String(result.data?.code || "");
-
-          if (result.response.status === 409 || code === "23505") {
-            return json({ error: "This Student ID is already registered." }, 409);
-          }
-
-          return json({
-            error:
-              result.data?.message ||
-              result.data?.hint ||
-              result.data?.details ||
-              result.data?.error ||
-              "Student registration failed."
-          }, result.response.status);
+          return json({ error: result.data?.message || result.data?.details || result.data?.hint || result.data?.error || "Device registration failed." }, result.response.status);
         }
-
         return json(result.data, 201);
       }
 
@@ -171,90 +146,38 @@ export default {
       }
 
       if (url.pathname === "/attendance/current" && request.method === "GET") {
-        const current = await student(env, request);
-        if (!current) return json({ error: "Student not found." }, 404);
-
-        const session = await activeSession(env, request, current.student_id);
-
-        return json({
-          inside_lab: Boolean(session),
-          session
-        });
+        const deviceToken = request.headers.get("X-Device-Token");
+        if (!deviceToken) return json({ error: "Device is not registered." }, 404);
+        const result = await supabaseRpc(env, request, "attendance_current_by_device", { p_device_token: deviceToken });
+        if (!result.response.ok) return json({ error: result.data?.message || "Unable to check attendance." }, result.response.status);
+        return json(result.data);
       }
 
       if (url.pathname === "/attendance/history" && request.method === "GET") {
-        const current = await student(env, request);
-        if (!current) return json({ error: "Student not found." }, 404);
-
-        const path =
-          "/rest/v1/attendance_sessions?select=id,entry_time,exit_time,duration_minutes" +
-          "&student_id=eq." + encodeURIComponent(current.student_id) +
-          "&order=id.desc&limit=10";
-
-        const result = await supabase(env, request, path);
-
+        const deviceToken = request.headers.get("X-Device-Token");
+        if (!deviceToken) return json({ error: "Device is not registered." }, 404);
+        const result = await supabaseRpc(env, request, "attendance_history_by_device", {
+          p_device_token: deviceToken
+        });
         if (!result.response.ok) {
           return json({ error: result.data?.message || "Unable to load history." }, result.response.status);
         }
-
         return json(result.data);
       }
 
       if (url.pathname === "/attendance/entry" && request.method === "POST") {
-        const current = await student(env, request);
-        if (!current) return json({ error: "Student not found." }, 404);
-
-        const active = await activeSession(env, request, current.student_id);
-        if (active) return json({ error: "Student is already inside the lab." }, 409);
-
-        const result = await supabase(env, request, "/rest/v1/attendance_sessions", {
-          method: "POST",
-          headers: { Prefer: "return=representation" },
-          body: JSON.stringify({
-            student_id: current.student_id,
-            entry_time: new Date().toISOString()
-          })
-        });
-
-        if (!result.response.ok) {
-          return json({ error: result.data?.message || "Unable to record entry." }, result.response.status);
-        }
-
+        const deviceToken = request.headers.get("X-Device-Token");
+        if (!deviceToken) return json({ error: "Device is not registered." }, 404);
+        const result = await supabaseRpc(env, request, "attendance_entry_by_device", { p_device_token: deviceToken });
+        if (!result.response.ok) return json({ error: result.data?.message || "Unable to record entry." }, result.response.status);
         return json(result.data, 201);
       }
 
       if (url.pathname === "/attendance/exit" && request.method === "POST") {
-        const current = await student(env, request);
-        if (!current) return json({ error: "Student not found." }, 404);
-
-        const active = await activeSession(env, request, current.student_id);
-        if (!active) return json({ error: "No active attendance session found." }, 409);
-
-        const exitTime = new Date();
-        const entryTime = new Date(active.entry_time);
-
-        const durationMinutes = Math.max(
-          0,
-          Math.floor((exitTime.getTime() - entryTime.getTime()) / 60000)
-        );
-
-        const path =
-          "/rest/v1/attendance_sessions?id=eq." +
-          encodeURIComponent(active.id);
-
-        const result = await supabase(env, request, path, {
-          method: "PATCH",
-          headers: { Prefer: "return=representation" },
-          body: JSON.stringify({
-            exit_time: exitTime.toISOString(),
-            duration_minutes: durationMinutes
-          })
-        });
-
-        if (!result.response.ok) {
-          return json({ error: result.data?.message || "Unable to record exit." }, result.response.status);
-        }
-
+        const deviceToken = request.headers.get("X-Device-Token");
+        if (!deviceToken) return json({ error: "Device is not registered." }, 404);
+        const result = await supabaseRpc(env, request, "attendance_exit_by_device", { p_device_token: deviceToken });
+        if (!result.response.ok) return json({ error: result.data?.message || "Unable to record exit." }, result.response.status);
         return json(result.data);
       }
 

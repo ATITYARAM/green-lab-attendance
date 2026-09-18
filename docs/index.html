@@ -31,11 +31,43 @@
 
             <p id="message" role="status" aria-live="polite"></p>
         </section>
+
+        <section class="qr-panel">
+            <div class="qr-card">
+                <h2>Entry QR</h2>
+                <div id="entryQr" class="qrcode" aria-label="Green Lab entry QR code"></div>
+                <p>Scan this QR to mark entry.</p>
+            </div>
+
+            <div class="qr-card">
+                <h2>Exit QR</h2>
+                <div id="exitQr" class="qrcode" aria-label="Green Lab exit QR code"></div>
+                <p>Scan this QR to mark exit.</p>
+            </div>
+        </section>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/worker.js"></script>
     <script src="js/app.js"></script>
+    <script>
+        const siteUrl = "https://rakhuljm.github.io/green-lab-attendance/";
+
+        new QRCode(document.getElementById("entryQr"), {
+            text: siteUrl + "entry.html",
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+
+        new QRCode(document.getElementById("exitQr"), {
+            text: siteUrl + "exit.html",
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    </script>
 </body>
 </html>

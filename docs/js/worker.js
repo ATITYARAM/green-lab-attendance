@@ -13,11 +13,18 @@ async function workerRequest(path, options = {}) {
         throw new Error("No Supabase authentication session found.");
     }
 
+    const deviceId = localStorage.getItem("green_lab_device_id");
+
+    if (!deviceId) {
+        throw new Error("This browser is not registered.");
+    }
+
     const response = await fetch(WORKER_URL + path, {
         ...options,
         headers: {
             "Content-Type": "application/json",
             Authorization: "Bearer " + token,
+            "X-Device-Token": deviceId,
             ...(options.headers || {})
         }
     });

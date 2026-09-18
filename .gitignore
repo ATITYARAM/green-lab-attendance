@@ -19,3 +19,8 @@ venv/
 
 # Environment variables
 .env
+
+# Node / Astro
+node_modules/
+.astro/
+dist/
