@@ -212,6 +212,11 @@ async function registerDevice(event) {
 }
 
 async function init() {
+    registrationArea.hidden = true;
+    attendanceActionArea.hidden = true;
+    pageSubtitle.textContent = "Checking device...";
+    message.textContent = "";
+
     try {
         const deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
 
@@ -227,13 +232,7 @@ async function init() {
         try {
             await workerRequest("/students/me");
         } catch (error) {
-            const text = String(error?.message || error || "").toLowerCase();
-
-            if (
-                text.includes("student not found") ||
-                text.includes("device is not registered") ||
-                text.includes("404")
-            ) {
+            if (error?.status === 404) {
                 localStorage.removeItem(DEVICE_STORAGE_KEY);
                 localStorage.removeItem(EXIT_UI_UNTIL_KEY);
                 showRegistrationArea();
@@ -243,10 +242,16 @@ async function init() {
             throw error;
         }
 
+        // Recognized device: never show registration on refresh.
+        // Show the current Entry/Exit state instead.
         await loadAttendanceAction();
     } catch (error) {
         console.error("Home page initialization:", error);
-        showRegistrationArea();
+        registrationArea.hidden = true;
+        attendanceActionArea.hidden = true;
+        pageSubtitle.textContent = "Unable to verify device";
+        message.textContent =
+            error?.message || "Could not verify this device. Please try again.";
     }
 }
 
