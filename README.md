@@ -1,58 +1,104 @@
 # Green Lab Attendance
 
-Simple attendance and lab time-tracking system for Green Lab.
+Green Lab student attendance and lab time tracking system.
 
-## Architecture
+## Deployment architecture
 
-Student -> GitHub Pages -> Cloudflare Worker -> Supabase Green Lab
+Student browser
+-> GitHub Pages
+-> Supabase Auth (anonymous session)
+-> Cloudflare Worker
+-> Supabase PostgreSQL + RLS
 
-The green branch contains the GitHub Pages frontend and Cloudflare Worker source.
+The browser uses Supabase Auth only to create/restore its anonymous session. Student registration and attendance data operations go through the Cloudflare Worker.
+
+## GitHub repository
+
+Repository: RakhulJM/green-lab-attendance
+Active deployment branch: green
+
+GitHub Pages:
+- Source branch: green
+- Folder: /docs
+
+Cloudflare Worker source:
+- worker/src/index.js
+- worker/wrangler.toml
 
 ## Cloudflare Worker
+
+Worker name:
+
+green-lab
 
 Worker URL:
 
 https://green-lab.atityaramsureshmanickam.workers.dev
 
-Source:
+### API routes
+
+GET /
+GET /health
+POST /students/register
+GET /students/me
+GET /attendance/current
+GET /attendance/history
+POST /attendance/entry
+POST /attendance/exit
+
+### Exact Worker source
+
+The deployable Worker source is stored in:
 
 worker/src/index.js
 
-Configuration:
+Paste that file into Cloudflare Workers if creating the Worker from the Cloudflare dashboard.
 
-worker/wrangler.toml
+The Worker:
+1. Accepts CORS requests from GitHub Pages.
+2. Reads the Supabase Auth bearer token from Authorization.
+3. Verifies the token by calling Supabase Auth.
+4. Finds the student linked to that Auth user.
+5. Reads/writes attendance through the Supabase REST API.
+6. Never requires a Supabase service-role key.
 
-Routes:
+## Cloudflare runtime configuration
 
-- GET / - Worker status
-- GET /health - health check
-- POST /students/register - register the authenticated browser
-- GET /students/me - current student
-- GET /attendance/current - active session
-- GET /attendance/history - recent attendance
-- POST /attendance/entry - mark entry
-- POST /attendance/exit - mark exit
+Set these in the Cloudflare Worker.
 
-The Worker forwards the user's Supabase Auth JWT to Supabase. It does not use a service-role key.
-
-## Cloudflare runtime variables
-
-Set these in the Worker:
-
+Variable:
 SUPABASE_URL
+
+Value:
 https://dvxfxbvdsubigemrqiph.supabase.co
 
+Secret:
 SUPABASE_PUBLISHABLE_KEY
+
+Value:
 Use the Green Lab Supabase publishable key.
 
-Recommended deployment command:
+Recommended CLI setup:
 
 npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
 npx wrangler deploy
 
-SUPABASE_URL is non-secret and is already in wrangler.toml.
+Do NOT put a database connection password or Supabase service-role key in GitHub or in public Worker code.
 
-Never commit a database password, service-role key, or other privileged secret.
+SUPABASE_URL is already defined in worker/wrangler.toml.
+
+## Cloudflare dashboard setup
+
+When creating the Worker:
+1. Create Worker named green-lab.
+2. Replace the starter Worker code with worker/src/index.js.
+3. Deploy it.
+4. Open Settings -> Variables and Secrets.
+5. Add SUPABASE_URL as a variable.
+6. Add SUPABASE_PUBLISHABLE_KEY as a secret.
+7. Redeploy if the dashboard requests it.
+8. Confirm the Worker URL is:
+   https://green-lab.atityaramsureshmanickam.workers.dev
 
 ## Supabase
 
@@ -60,18 +106,23 @@ Project: Green Lab
 Project ref: dvxfxbvdsubigemrqiph
 Region: ap-northeast-1
 
-Enable Anonymous Sign-Ins in Supabase Auth.
+Required:
+- Anonymous Sign-Ins enabled.
+- RLS enabled on students and attendance_sessions.
+- students.auth_user_id linked to the Supabase Auth user.
 
-RLS must remain enabled on the application tables.
+The publishable key is safe to use in browser/Worker public applications, but it does not replace RLS. Never use a service-role key in frontend code.
 
-## GitHub Pages
+## Local deployment
 
-Publish the docs/ directory from the green branch using GitHub Pages.
+From the repository:
 
-docs/js/worker.js contains the Worker URL and sends the current Supabase Auth bearer token to the Worker.
-
-The existing Supabase client is still used for Auth session management. Application data requests can use the Worker API.
+cd worker
+npm install -D wrangler
+npx wrangler login
+npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
+npx wrangler deploy
 
 ## Legacy backend
 
-The existing FastAPI backend remains in the repository for reference. It is not required for the Worker/GitHub Pages deployment.
+backend/ contains the previous FastAPI implementation. It is not required for the current green deployment.
