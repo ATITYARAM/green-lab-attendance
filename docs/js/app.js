@@ -221,7 +221,27 @@ async function init() {
         }
 
         await getOrCreateSession();
-        await workerRequest("/students/me");
+
+        // The database is the source of truth.
+        // A cached browser ID alone does not mean this device is registered.
+        try {
+            await workerRequest("/students/me");
+        } catch (error) {
+            const text = String(error?.message || error || "").toLowerCase();
+
+            if (
+                text.includes("student not found") ||
+                text.includes("device is not registered") ||
+                text.includes("404")
+            ) {
+                localStorage.removeItem(DEVICE_STORAGE_KEY);
+                localStorage.removeItem(EXIT_UI_UNTIL_KEY);
+                showRegistrationArea();
+                return;
+            }
+
+            throw error;
+        }
 
         await loadAttendanceAction();
     } catch (error) {
