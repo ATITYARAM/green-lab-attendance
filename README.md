@@ -1,25 +1,27 @@
 # Green Lab Attendance
 
-Green Lab student attendance and lab time tracking system.
+Green Lab Attendance is a lightweight web application for recording student entry, exit, and time spent in the Green Lab.
 
-## Stack
+## Architecture
 
-- Astro static frontend
-- GitHub Pages for the static site
-- Supabase Auth for browser sessions
-- Cloudflare Worker for API requests
-- Supabase PostgreSQL for persistent attendance data
+- **Astro** — static frontend at the repository root
+- **GitHub Pages** — hosts the generated frontend in `docs/`
+- **Supabase Auth** — provides the browser authentication session
+- **Cloudflare Worker** — handles authenticated attendance API requests
+- **Supabase PostgreSQL** — stores students, browser registrations, and attendance sessions
+
+The project is intentionally kept as a static frontend + hosted backend architecture, so students can use the system without being connected to the lab's local network.
 
 ## Project structure
 
 ```text
 src/
-  layouts/
-  pages/
+├── layouts/          # Shared Astro layouts
+└── pages/            # Astro pages
 
 public/
-  css/
-  js/
+├── css/              # Stylesheets
+└── js/               # Frontend JavaScript
 
 docs/                 # Generated GitHub Pages output
 worker/               # Cloudflare Worker API
@@ -27,58 +29,118 @@ backend/              # Legacy local FastAPI implementation
 astro.config.mjs
 package.json
 tsconfig.json
+README.md
 ```
 
-The repository uses Astro at the root. There is no nested Astro project.
+Astro is configured at the repository root. There is no nested Astro project.
 
-## Development
+## Local development
 
-Install dependencies:
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-Start the Astro development server:
+### 2. Start the development server
 
 ```bash
 npm run dev
 ```
 
-Build the static GitHub Pages site:
+Astro will start a local development server and provide the local URL in the terminal.
+
+### 3. Build the production site
 
 ```bash
 npm run build
 ```
 
-The Astro build writes the static site to `docs/` so the existing GitHub Pages deployment path remains unchanged.
+The production build is written to `docs/`. This keeps the existing GitHub Pages deployment structure unchanged.
 
-## Attendance flow
+### 4. Preview the production build
 
-Student registration creates a Supabase anonymous session and links the browser session to the registered student.
+```bash
+npm run preview
+```
 
-The attendance pages use the existing Worker API to:
+## Attendance workflow
 
-- identify the registered student
-- record entry
-- record exit
-- calculate time spent
-- display recent attendance
+1. A student registers the browser using their Student ID and name.
+2. A random browser/device identifier is stored locally in `localStorage`.
+3. The browser identifier is sent with authenticated API requests.
+4. The home page checks the current attendance session from the backend.
+5. If the student is outside the lab, the **Entry** action is available.
+6. If the student is inside the lab, the **Exit** action is available.
+7. Exit closes the active session and records the time spent.
+8. The attendance page displays recent sessions using India Standard Time (`Asia/Kolkata`) for human-readable timestamps.
 
-The QR entry and exit pages remain:
+### Browser identity
 
-- `entry.html`
-- `exit.html`
+The browser identifier is a random locally stored value. It is **not** a physical device identifier and does not use IMEI, MAC address, GPS, SIM information, or fingerprinting.
 
-## Cloudflare Worker
+A student can use multiple browsers/devices. Each browser has its own locally stored identifier.
 
-Worker source:
+Because the identifier is stored in browser `localStorage`, clearing site data, using private browsing, or switching browsers can result in a new browser identity and require registration again.
 
-`worker/src/index.js`
+## QR entry and exit
 
-Runtime configuration:
+The system provides separate pages for QR-based attendance actions:
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY` as a Worker secret
+- `entry.html` — opens the entry flow
+- `exit.html` — opens the exit flow
+- `qr.html` — generates/prints the QR codes
 
-Never commit database passwords or service-role keys.
+The QR code only needs to open the corresponding web page. Attendance status and recording are handled by the application and Worker API.
+
+## Backend API
+
+The Cloudflare Worker source is located at:
+
+```text
+worker/src/index.js
+```
+
+The frontend communicates with the Worker through the configured Worker URL. Authenticated requests include the Supabase access token and the locally stored browser identifier.
+
+The legacy FastAPI implementation remains under `backend/` for local development/reference and is not required for the deployed GitHub Pages workflow.
+
+## Configuration and security
+
+Frontend Supabase configuration is stored in:
+
+```text
+public/js/config.js
+```
+
+Only the Supabase publishable/anonymous client key should be exposed to the frontend.
+
+Never commit:
+
+- Supabase service-role keys
+- database passwords
+- Cloudflare secrets
+- private credentials
+- local environment files containing secrets
+
+Worker secrets should be configured through Cloudflare rather than committed to the repository.
+
+## Deployment
+
+The frontend is built with Astro and the generated `docs/` directory is deployed through GitHub Pages.
+
+The API runs separately on Cloudflare Workers and uses Supabase for authentication and persistent data.
+
+Typical update flow:
+
+```bash
+npm run build
+git status
+git add .
+git commit -m "your message"
+git push origin green
+```
+
+## Status
+
+The project currently provides the core registration, browser identity, QR entry/exit, attendance session, time tracking, and attendance history flow. Administrative reporting and further attendance-management features can be added on top of this foundation.
