@@ -244,7 +244,7 @@ async function init() {
 
         // Recognized device: never show registration on refresh.
         // Show the current Entry/Exit state instead.
-        await loadAttendanceAction();
+        await loadAttendanceAction(true);
     } catch (error) {
         console.error("Home page initialization:", error);
         registrationArea.hidden = true;
