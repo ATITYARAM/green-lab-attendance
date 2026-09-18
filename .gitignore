@@ -1,3 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+green_lab.db
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.py[codz]

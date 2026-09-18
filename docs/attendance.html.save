@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Green Lab | Attendance</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <main class="container">
+
+        <section class="registration-card">
+
+            <div class="header">
+                <h1>Green Lab</h1>
+                <p>Attendance</p>
+            </div>
+
+            <div id="studentInfo">
+                Loading student...
+            </div>
+
+            <div id="status" class="attendance-status">
+                Checking attendance...
+            </div>
+
+            <div id="timer" class="timer">
+                00:00:00
+            </div>
+
+            <button id="toggleButton">
+                Mark Attendance
+            </button>
+
+            <p id="message"></p>
+
+            <div class="history-section">
+                <h2>Recent Attendance</h2>
+
+                <div id="history">
+                    Loading history...
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+	
+    <script src="js/attendance.js"></script>
