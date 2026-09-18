@@ -9,65 +9,37 @@ let currentEntryTime = null;
 let timerInterval = null;
 
 async function getCurrentStudent() {
-    const { data: sessionData, error: sessionError } =
-        await db.auth.getSession();
+    const { data, error } = await db.auth.getSession();
 
-    if (sessionError || !sessionData.session) {
+    if (error || !data.session) {
         throw new Error("Browser is not registered");
     }
 
-    const { data, error } = await db
-        .from("students")
-        .select("student_id, name")
-        .eq("auth_user_id", sessionData.session.user.id)
-        .single();
-
-    if (error) {
-        throw error;
-    }
-
-    return data;
+    return await workerRequest("/students/me");
 }
 
 async function loadStudent() {
     const student = await getCurrentStudent();
 
-    studentInfo.innerHTML = `
-        <strong>${student.name}</strong>
-        <br>
-        Student ID: ${student.student_id}
-    `;
+    studentInfo.innerHTML =
+        "<strong>" + student.name + "</strong><br>" +
+        "Student ID: " + student.student_id;
 
     return student;
 }
 
 async function loadCurrentAttendance() {
-    const student = await getCurrentStudent();
-
-    const { data, error } = await db
-        .from("attendance_sessions")
-        .select("id, entry_time, exit_time, duration_minutes")
-        .eq("student_id", student.student_id)
-        .is("exit_time", null)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    if (error) {
-        throw error;
-    }
+    const data = await workerRequest("/attendance/current");
 
     updateAttendanceUI({
-        inside_lab: Boolean(data),
-        entry_time: data?.entry_time ?? null
+        inside_lab: data.inside_lab,
+        entry_time: data.session?.entry_time || null
     });
 }
 
 function updateAttendanceUI(data) {
     if (data.inside_lab) {
-        currentEntryTime = new Date(
-            data.entry_time.replace(" ", "T")
-        );
+        currentEntryTime = new Date(data.entry_time);
 
         statusElement.textContent = "Currently inside Green Lab";
         toggleButton.textContent = "Mark Exit";
@@ -89,9 +61,7 @@ function startTimer() {
 
         const difference = Math.max(
             0,
-            Math.floor(
-                (Date.now() - currentEntryTime.getTime()) / 1000
-            )
+            Math.floor((Date.now() - currentEntryTime.getTime()) / 1000)
         );
 
         const hours = Math.floor(difference / 3600);
@@ -99,9 +69,9 @@ function startTimer() {
         const seconds = difference % 60;
 
         timerElement.textContent =
-            `${String(hours).padStart(2, "0")}:` +
-            `${String(minutes).padStart(2, "0")}:` +
-            `${String(seconds).padStart(2, "0")}`;
+            String(hours).padStart(2, "0") + ":" +
+            String(minutes).padStart(2, "0") + ":" +
+            String(seconds).padStart(2, "0");
     }
 
     updateTimer();
@@ -120,62 +90,38 @@ async function toggleAttendance() {
     messageElement.textContent = "Recording...";
 
     try {
-        const student = await getCurrentStudent();
+        const current = await workerRequest("/attendance/current");
 
-        const { data: active, error: activeError } = await db
-            .from("attendance_sessions")
-            .select("id, entry_time")
-            .eq("student_id", student.student_id)
-            .is("exit_time", null)
-            .order("id", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (activeError) {
-            throw activeError;
-        }
-
-        if (!active) {
-            const { error } = await db
-                .from("attendance_sessions")
-                .insert({
-                    student_id: student.student_id,
-                    entry_time: new Date().toISOString()
-                });
-
-            if (error) {
-                throw error;
-            }
+        if (!current.inside_lab) {
+            const result = await workerRequest("/attendance/entry", {
+                method: "POST"
+            });
 
             messageElement.textContent = "Entry recorded successfully.";
+
+            const session = Array.isArray(result) ? result[0] : result;
+            updateAttendanceUI({
+                inside_lab: true,
+                entry_time: session?.entry_time || new Date().toISOString()
+            });
         } else {
-            const exitDate = new Date();
-            const entryDate = new Date(
-                active.entry_time.replace(" ", "T")
-            );
+            const result = await workerRequest("/attendance/exit", {
+                method: "POST"
+            });
 
-            const durationMinutes = Math.max(
-                0,
-                Math.floor((exitDate - entryDate) / 60000)
-            );
-
-            const { error } = await db
-                .from("attendance_sessions")
-                .update({
-                    exit_time: exitDate.toISOString(),
-                    duration_minutes: durationMinutes
-                })
-                .eq("id", active.id);
-
-            if (error) {
-                throw error;
-            }
+            const session = Array.isArray(result) ? result[0] : result;
 
             messageElement.textContent =
-                `Exit recorded. Time spent: ${durationMinutes} minutes.`;
+                "Exit recorded. Time spent: " +
+                (session?.duration_minutes ?? 0) +
+                " minutes.";
+
+            updateAttendanceUI({
+                inside_lab: false,
+                entry_time: null
+            });
         }
 
-        await loadCurrentAttendance();
         await loadHistory();
     } catch (error) {
         console.error(error);
@@ -188,34 +134,34 @@ async function toggleAttendance() {
 
 async function loadHistory() {
     try {
-        const student = await getCurrentStudent();
-
-        const { data, error } = await db
-            .from("attendance_sessions")
-            .select("entry_time, exit_time, duration_minutes")
-            .eq("student_id", student.student_id)
-            .order("id", { ascending: false })
-            .limit(10);
-
-        if (error) {
-            throw error;
-        }
+        const data = await workerRequest("/attendance/history");
 
         if (!data || data.length === 0) {
             historyElement.textContent = "No attendance records yet.";
             return;
         }
 
-        historyElement.innerHTML = data.map(session => `
-            <div class="history-item">
-                <div><strong>Entry:</strong> ${session.entry_time}</div>
-                <div><strong>Exit:</strong> ${session.exit_time || "Inside Lab"}</div>
-                <div><strong>Duration:</strong> ${session.duration_minutes ?? "Active"}${session.duration_minutes !== null ? " min" : ""}</div>
-            </div>
-        `).join("");
+        historyElement.innerHTML = data.map((session) => {
+            const duration =
+                session.duration_minutes === null ||
+                session.duration_minutes === undefined
+                    ? "Active"
+                    : session.duration_minutes + " min";
+
+            return (
+                '<div class="history-item">' +
+                "<div><strong>Entry:</strong> " + session.entry_time + "</div>" +
+                "<div><strong>Exit:</strong> " +
+                (session.exit_time || "Inside Lab") +
+                "</div>" +
+                "<div><strong>Duration:</strong> " + duration + "</div>" +
+                "</div>"
+            );
+        }).join("");
     } catch (error) {
         console.error(error);
-        historyElement.textContent = "Unable to load attendance history.";
+        historyElement.textContent =
+            "Unable to load attendance history.";
     }
 }
 
@@ -251,7 +197,7 @@ async function start() {
         toggleButton.disabled = true;
 
         messageElement.innerHTML =
-            `Open <a href="index.html">Student Registration</a>`;
+            '<a href="index.html">Student Registration</a>';
     }
 }
 
