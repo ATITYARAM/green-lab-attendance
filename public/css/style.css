@@ -254,3 +254,31 @@ button:disabled { opacity: .6; cursor: not-allowed; }
         grid-template-columns: 1fr;
     }
 }
+
+
+.qr-mobile-message {
+    display: none;
+    width: min(100% - 32px, 720px);
+    margin: 0 auto;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.qr-mobile-message h1 {
+    margin: 0 0 10px;
+    color: #1f6f43;
+}
+
+.qr-mobile-message p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+.mobile-device .qr-print-card {
+    display: none;
+}
+
+.mobile-device .qr-mobile-message {
+    display: block;
+}
