@@ -3,54 +3,34 @@ const message = document.getElementById("message");
 
 async function getOrCreateSession() {
     const { data, error } = await db.auth.getSession();
-
-    if (error) {
-        throw error;
-    }
-
-    if (data.session) {
-        return data.session;
-    }
+    if (error) throw error;
+    if (data.session) return data.session;
 
     const { data: authData, error: authError } =
         await db.auth.signInAnonymously();
 
-    if (authError) {
-        throw authError;
-    }
-
+    if (authError) throw authError;
     return authData.session;
 }
 
-form.addEventListener("submit", async function (event) {
+form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const studentId =
-        document.getElementById("studentId").value.trim();
-
-    const name =
-        document.getElementById("name").value.trim();
+    const studentId = document.getElementById("studentId").value.trim();
+    const name = document.getElementById("name").value.trim();
 
     message.textContent = "Registering...";
 
     try {
-        const session = await getOrCreateSession();
+        await getOrCreateSession();
 
-        const { error } = await db
-            .from("students")
-            .insert({
+        await workerRequest("/students/register", {
+            method: "POST",
+            body: JSON.stringify({
                 student_id: studentId,
-                name: name,
-                auth_user_id: session.user.id
-            });
-
-        if (error) {
-            if (error.code === "23505") {
-                message.textContent = "Student ID already exists.";
-                return;
-            }
-            throw error;
-        }
+                name
+            })
+        });
 
         message.textContent = "Registration successful.";
 
@@ -59,7 +39,12 @@ form.addEventListener("submit", async function (event) {
         }, 700);
     } catch (error) {
         console.error(error);
-        message.textContent =
-            "Registration failed. Make sure Anonymous Sign-Ins are enabled in Supabase.";
+
+        if (error.message && error.message.includes("23505")) {
+            message.textContent = "Student ID already exists.";
+        } else {
+            message.textContent =
+                "Registration failed. Make sure Anonymous Sign-Ins are enabled in Supabase.";
+        }
     }
 });
