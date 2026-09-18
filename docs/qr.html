@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Green Lab | Attendance QR</title>
+    <script>
+        if (window.innerWidth <= 768) {
+            document.documentElement.classList.add("mobile-qr-hidden");
+        }
+    </script>
     <style>
         .qr-mobile-message {
             display: block;
@@ -51,6 +56,8 @@
                 display: none;
             }
         }
+            html.mobile-qr-hidden .card { display: none !important; }
+        html.mobile-qr-hidden .qr-mobile-message { display: block !important; }
     </style>
 </head>
 
