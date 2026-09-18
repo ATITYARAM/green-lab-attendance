@@ -1,23 +1,43 @@
 const WORKER_URL = "https://green-lab.atityaramsureshmanickam.workers.dev";
 
 async function workerRequest(path, options = {}) {
-  const sessionResult = await db.auth.getSession();
-  const token = sessionResult.data.session?.access_token;
+    const sessionResult = await db.auth.getSession();
 
-  const response = await fetch(WORKER_URL + path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: "Bearer " + token } : {}),
-      ...(options.headers || {})
+    if (sessionResult.error) {
+        throw new Error("Supabase session error: " + sessionResult.error.message);
     }
-  });
 
-  const data = await response.json();
+    const token = sessionResult.data.session?.access_token;
 
-  if (!response.ok) {
-    throw new Error(data.error || "Worker request failed");
-  }
+    if (!token) {
+        throw new Error("No Supabase authentication session found.");
+    }
 
-  return data;
+    const response = await fetch(WORKER_URL + path, {
+        ...options,
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+            ...(options.headers || {})
+        }
+    });
+
+    const text = await response.text();
+
+    let data;
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = { error: text || "Worker returned an invalid response." };
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            data?.error ||
+            data?.message ||
+            "Worker request failed with HTTP " + response.status
+        );
+    }
+
+    return data;
 }
