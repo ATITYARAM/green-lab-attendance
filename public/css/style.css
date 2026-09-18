@@ -275,10 +275,12 @@ button:disabled { opacity: .6; cursor: not-allowed; }
     line-height: 1.6;
 }
 
-.mobile-device .qr-print-card {
-    display: none;
-}
+@media (max-width: 768px) {
+    .qr-print-card {
+        display: none;
+    }
 
-.mobile-device .qr-mobile-message {
-    display: block;
+    .qr-mobile-message {
+        display: block;
+    }
 }
