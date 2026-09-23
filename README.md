@@ -75,6 +75,20 @@ npm run preview
 7. Exit closes the active session and records the time spent.
 8. The attendance page displays recent sessions using India Standard Time (`Asia/Kolkata`) for human-readable timestamps.
 
+### Two-hour attendance limit
+
+Each recorded entry has a server-side two-hour validity window.
+
+- The expiry timestamp is stored in the attendance session in the database.
+- A manual exit before two hours closes the session as a **manual exit**.
+- When two hours are reached, the session is closed as an **automatic exit** with a recorded duration of 120 minutes.
+- Automatic expiry is performed by Supabase Cron every minute, so it does not depend on the student's browser, JavaScript timers, local storage, or device remaining online.
+- The attendance API also checks expiry synchronously, so a session cannot be kept active by avoiding a browser refresh or by reaching the API just after the two-hour boundary.
+
+The browser may display a countdown and refresh the current state periodically, but the database is the source of truth for the two-hour rule.
+
+
+
 ### Browser identity
 
 The browser identifier is a random locally stored value. It is **not** a physical device identifier and does not use IMEI, MAC address, GPS, SIM information, or fingerprinting.
