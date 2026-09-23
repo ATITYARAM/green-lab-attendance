@@ -148,7 +148,7 @@ export default {
       if (url.pathname === "/attendance/current" && request.method === "GET") {
         const deviceToken = request.headers.get("X-Device-Token");
         if (!deviceToken) return json({ error: "Device is not registered." }, 404);
-        const result = await supabaseRpc(env, request, "attendance_current_by_device", { p_device_token: deviceToken });
+        const result = await supabaseRpc(env, request, "attendance_current_by_device_v2", { p_device_token: deviceToken });
         if (!result.response.ok) return json({ error: result.data?.message || "Unable to check attendance." }, result.response.status);
         return json(result.data);
       }
@@ -156,7 +156,7 @@ export default {
       if (url.pathname === "/attendance/history" && request.method === "GET") {
         const deviceToken = request.headers.get("X-Device-Token");
         if (!deviceToken) return json({ error: "Device is not registered." }, 404);
-        const result = await supabaseRpc(env, request, "attendance_history_by_device", {
+        const result = await supabaseRpc(env, request, "attendance_history_by_device_v2", {
           p_device_token: deviceToken
         });
         if (!result.response.ok) {
@@ -168,7 +168,7 @@ export default {
       if (url.pathname === "/attendance/entry" && request.method === "POST") {
         const deviceToken = request.headers.get("X-Device-Token");
         if (!deviceToken) return json({ error: "Device is not registered." }, 404);
-        const result = await supabaseRpc(env, request, "attendance_entry_by_device", { p_device_token: deviceToken });
+        const result = await supabaseRpc(env, request, "attendance_entry_by_device_v2", { p_device_token: deviceToken });
         if (!result.response.ok) return json({ error: result.data?.message || "Unable to record entry." }, result.response.status);
         return json(result.data, 201);
       }
@@ -176,7 +176,7 @@ export default {
       if (url.pathname === "/attendance/exit" && request.method === "POST") {
         const deviceToken = request.headers.get("X-Device-Token");
         if (!deviceToken) return json({ error: "Device is not registered." }, 404);
-        const result = await supabaseRpc(env, request, "attendance_exit_by_device", { p_device_token: deviceToken });
+        const result = await supabaseRpc(env, request, "attendance_exit_by_device_v2", { p_device_token: deviceToken });
         if (!result.response.ok) return json({ error: result.data?.message || "Unable to record exit." }, result.response.status);
         return json(result.data);
       }
