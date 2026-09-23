@@ -6,7 +6,31 @@ const messageElement = document.getElementById("message");
 const historyElement = document.getElementById("history");
 
 let currentEntryTime = null;
+let currentExpiryTime = null;
 let timerInterval = null;
+let attendancePollInterval = null;
+let attendancePollBusy = false;
+
+const hudStudent = document.getElementById("hudStudent");
+const hudStudentId = document.getElementById("hudStudentId");
+const hudStatus = document.getElementById("hudStatus");
+const hudSince = document.getElementById("hudSince");
+const hudAction = document.getElementById("hudAction");
+const hudActionTime = document.getElementById("hudActionTime");
+const hudClock = document.getElementById("hudClock");
+
+function updateHudClock() {
+    if (!hudClock) return;
+    hudClock.textContent = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata", month: "short", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+    }).format(new Date());
+}
+
+function setHudAction(action, timestamp = new Date().toISOString()) {
+    if (hudAction) hudAction.textContent = action;
+    if (hudActionTime) hudActionTime.textContent = formatAttendanceTime(timestamp);
+}
 
 async function getCurrentStudent() {
     const { data, error } = await db.auth.getSession();
@@ -25,6 +49,9 @@ async function loadStudent() {
         "<strong>" + student.name + "</strong><br>" +
         "Student ID: " + student.student_id;
 
+    if (hudStudent) hudStudent.textContent = student.name;
+    if (hudStudentId) hudStudentId.textContent = "ID: " + student.student_id;
+
     return student;
 }
 
@@ -33,19 +60,29 @@ async function loadCurrentAttendance() {
 
     updateAttendanceUI({
         inside_lab: data.inside_lab,
-        entry_time: data.session?.entry_time || null
+        entry_time: data.session?.entry_time || null,
+        expires_at: data.session?.expires_at || null
     });
 }
 
 function updateAttendanceUI(data) {
     if (data.inside_lab) {
-        currentEntryTime = new Date(data.entry_time);
+        currentEntryTime = data.entry_time ? new Date(data.entry_time) : null;
+        currentExpiryTime = data.expires_at ? new Date(data.expires_at) : null;
         statusElement.textContent = "Currently inside Green Lab";
+        if (hudStatus) hudStatus.textContent = "Inside Lab";
+        if (hudSince) {
+            hudSince.textContent =
+                "Until " + formatAttendanceTime(data.expires_at);
+        }
         toggleButton.textContent = "Mark Exit";
         startTimer();
     } else {
         currentEntryTime = null;
+        currentExpiryTime = null;
         statusElement.textContent = "Currently outside Green Lab";
+        if (hudStatus) hudStatus.textContent = "Outside Lab";
+        if (hudSince) hudSince.textContent = "Ready for entry";
         toggleButton.textContent = "Mark Entry";
         stopTimer();
         timerElement.textContent = "00:00:00";
@@ -56,11 +93,14 @@ function startTimer() {
     stopTimer();
 
     function updateTimer() {
-        if (!currentEntryTime) return;
+        if (!currentExpiryTime) {
+            timerElement.textContent = "02:00:00";
+            return;
+        }
 
         const difference = Math.max(
             0,
-            Math.floor((Date.now() - currentEntryTime.getTime()) / 1000)
+            Math.floor((currentExpiryTime.getTime() - Date.now()) / 1000)
         );
 
         const hours = Math.floor(difference / 3600);
@@ -75,6 +115,41 @@ function startTimer() {
 
     updateTimer();
     timerInterval = setInterval(updateTimer, 1000);
+}
+
+async function pollAttendanceState() {
+    if (attendancePollBusy) return;
+    attendancePollBusy = true;
+
+    try {
+        const wasInside = !!currentEntryTime;
+        const data = await workerRequest("/attendance/current");
+
+        updateAttendanceUI({
+            inside_lab: data.inside_lab,
+            entry_time: data.session?.entry_time || null,
+            expires_at: data.session?.expires_at || null
+        });
+
+        if (wasInside && !data.inside_lab) {
+            await loadHistory();
+            setHudAction("Automatic Exit");
+            messageElement.textContent =
+                "2-hour limit reached. Exit recorded automatically.";
+        }
+    } catch (error) {
+        console.error("Attendance state refresh:", error);
+    } finally {
+        attendancePollBusy = false;
+    }
+}
+
+function startAttendancePolling() {
+    if (attendancePollInterval) {
+        clearInterval(attendancePollInterval);
+    }
+
+    attendancePollInterval = setInterval(pollAttendanceState, 15000);
 }
 
 function stopTimer() {
@@ -100,10 +175,13 @@ async function toggleAttendance() {
 
             messageElement.textContent = "Entry recorded successfully.";
 
+            const entryTime = session?.entry_time || new Date().toISOString();
             updateAttendanceUI({
                 inside_lab: true,
-                entry_time: session?.entry_time || new Date().toISOString()
+                entry_time: entryTime,
+                expires_at: session?.expires_at || null
             });
+            setHudAction("Entry", entryTime);
         } else {
             const result = await workerRequest("/attendance/exit", {
                 method: "POST"
@@ -118,8 +196,13 @@ async function toggleAttendance() {
 
             updateAttendanceUI({
                 inside_lab: false,
-                entry_time: null
+                entry_time: null,
+                expires_at: null
             });
+            setHudAction(
+                session?.action === "automatic_exit" ? "Automatic Exit" : "Manual Exit",
+                session?.exit_time || new Date().toISOString()
+            );
         }
 
         await loadHistory();
@@ -148,11 +231,18 @@ async function loadHistory() {
                     ? "Active"
                     : session.duration_minutes + " min";
 
+            const exitLabel =
+                session.exit_type === "automatic"
+                    ? "Automatic Exit"
+                    : "Manual Exit";
+
             return (
                 '<div class="history-item">' +
                 "<div><strong>Entry:</strong> " + formatAttendanceTime(session.entry_time) + "</div>" +
                 "<div><strong>Exit:</strong> " +
-                (session.exit_time ? formatAttendanceTime(session.exit_time) : "Inside Lab") +
+                (session.exit_time
+                    ? exitLabel + " — " + formatAttendanceTime(session.exit_time)
+                    : "Inside Lab") +
                 "</div>" +
                 "<div><strong>Duration:</strong> " + duration + "</div>" +
                 "</div>"
@@ -211,10 +301,13 @@ async function handleQRScan() {
 
         const session = Array.isArray(result) ? result[0] : result;
 
+        const entryTime = session?.entry_time || new Date().toISOString();
         updateAttendanceUI({
             inside_lab: true,
-            entry_time: session?.entry_time || new Date().toISOString()
+            entry_time: entryTime,
+            expires_at: session?.expires_at || null
         });
+        setHudAction("Entry", entryTime);
 
         messageElement.textContent = "Entry recorded successfully.";
         await loadHistory();
@@ -236,8 +329,13 @@ async function handleQRScan() {
 
     updateAttendanceUI({
         inside_lab: false,
-        entry_time: null
+        entry_time: null,
+        expires_at: null
     });
+    setHudAction(
+        session?.action === "automatic_exit" ? "Automatic Exit" : "Manual Exit",
+        session?.exit_time || new Date().toISOString()
+    );
 
     messageElement.textContent =
         "Exit recorded. Time spent: " +
@@ -253,6 +351,7 @@ async function start() {
         await loadCurrentAttendance();
         await loadHistory();
         await handleQRScan();
+        startAttendancePolling();
     } catch (error) {
         console.error(error);
 
@@ -265,3 +364,6 @@ async function start() {
 
 toggleButton.addEventListener("click", toggleAttendance);
 start();
+
+updateHudClock();
+setInterval(updateHudClock, 1000);
