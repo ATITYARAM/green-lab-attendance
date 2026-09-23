@@ -132,8 +132,20 @@ async function pollAttendanceState() {
         });
 
         if (wasInside && !data.inside_lab) {
+            const history = await workerRequest("/attendance/history");
             await loadHistory();
-            setHudAction("Automatic Exit");
+
+            const latest = Array.isArray(history) ? history[0] : null;
+
+            if (latest?.exit_type === "automatic") {
+                setHudAction(
+                    "Automatic Exit",
+                    latest.exit_time || new Date().toISOString()
+                );
+            } else {
+                setHudAction("Exit");
+            }
+
             messageElement.textContent =
                 "2-hour limit reached. Exit recorded automatically.";
         }
