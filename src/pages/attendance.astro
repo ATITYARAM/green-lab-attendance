@@ -45,7 +45,8 @@ const siteUrl = new URL(base, Astro.site).href;
 
       <div id="studentInfo">Loading student...</div>
       <div id="status" class="attendance-status">Checking attendance...</div>
-      <div id="timer" class="timer">00:00:00</div>
+      <div class="timer-label">Time remaining</div>
+      <div id="timer" class="timer">02:00:00</div>
 
       <button id="toggleButton" type="button">Mark Entry</button>
       <p id="message" role="status" aria-live="polite"></p>
@@ -131,6 +132,13 @@ const siteUrl = new URL(base, Astro.site).href;
     .hud-status strong { color: #52e89a; }
     .hud-clock { display: flex; flex-direction: column; gap: 5px; text-align: right; white-space: nowrap; }
     .hud-clock span:last-child { color: #6ff0a5; opacity: 1; }
+    .timer-label {
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #6b7280;
+    }
     @media (max-width: 900px) {
       .green-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .hud-brand { grid-column: 1 / -1; }
